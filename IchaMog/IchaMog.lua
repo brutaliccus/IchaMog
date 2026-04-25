@@ -43,6 +43,11 @@ local deferDecorateFrame = CreateFrame("Frame")
 deferDecorateFrame:Hide()
 local pendingDecorateTip
 
+local STATUS_TEXT_COLLECTED = "Collected"
+local STATUS_TEXT_NOT_COLLECTED = "Not collected"
+local STATUS_COLOR_COLLECTED = { 0.25, 1.0, 0.35 }
+local STATUS_COLOR_NOT_COLLECTED = { 1.0, 0.4, 0.4 }
+
 local function libExtraTipOwnsTooltip(tip)
   local ls = _G.LibStub
   if not ls then
@@ -65,6 +70,9 @@ local function ensureDB()
   return db
 end
 
+-- ----------------------------
+-- Data migration / validation
+-- ----------------------------
 local function migrateDB()
   local ver = db.schemaVersion or 1
   if ver < 2 then
@@ -80,6 +88,9 @@ local function migrateDB()
   db.schemaVersion = SCHEMA_VERSION
 end
 
+-- ----------------------------
+-- Appearance key providers
+-- ----------------------------
 local function runNativeDisplaySelfTest()
   autoSkipNativeDisplay = false
   if _G.IchaMog_UseNativeDisplayAPI ~= nil then
@@ -143,6 +154,9 @@ local function useNativeDisplayAPI()
   return not autoSkipNativeDisplay
 end
 
+-- ----------------------------
+-- Optional MogIt integration
+-- ----------------------------
 local MOGIT_DATA_ADDONS = {
   "MogIt_Cloth",
   "MogIt_Leather",
@@ -200,6 +214,9 @@ local function tryAutoEnableMogItData(chatty)
   tryLoadMogItDataModules(chatty)
 end
 
+-- ----------------------------
+-- Collection resolution
+-- ----------------------------
 local function mogitAppearanceKey(itemId)
   local mog = _G.MogIt
   if not mog or type(mog.GetData) ~= "function" then
@@ -384,7 +401,7 @@ local function frameHasCollectionStatusLine(frame)
     local L = _G[nm .. "TextLeft" .. i]
     if L and L:IsShown() then
       local t = L:GetText()
-      if t == "Collected" or t == "Not collected" then
+      if t == STATUS_TEXT_COLLECTED or t == STATUS_TEXT_NOT_COLLECTED then
         return true
       end
     end
@@ -436,9 +453,9 @@ local function appendCollectionToTooltip(tip, link)
   local collected = tip.ichamogLockedValue
   local r, g, b, text
   if collected then
-    text, r, g, b = "Collected", 0.25, 1.0, 0.35
+    text, r, g, b = STATUS_TEXT_COLLECTED, STATUS_COLOR_COLLECTED[1], STATUS_COLOR_COLLECTED[2], STATUS_COLOR_COLLECTED[3]
   else
-    text, r, g, b = "Not collected", 1.0, 0.4, 0.4
+    text, r, g, b = STATUS_TEXT_NOT_COLLECTED, STATUS_COLOR_NOT_COLLECTED[1], STATUS_COLOR_NOT_COLLECTED[2], STATUS_COLOR_NOT_COLLECTED[3]
   end
 
   tip:AddLine(text, r, g, b)
@@ -499,7 +516,7 @@ local function addCollectionStatusTmogStyle(tip, collected)
     lines[i] = { lt, rt, lr, lg, lb, rr, rg, rb }
   end
 
-  local status = collected and "|cff00cc00Collected|r" or "|cffe04040Not collected|r"
+  local status = collected and "|cff00cc00" .. STATUS_TEXT_COLLECTED .. "|r" or "|cffe04040" .. STATUS_TEXT_NOT_COLLECTED .. "|r"
 
   tip:SetText(lines[1][1], lines[1][3], lines[1][4], lines[1][5], 1, false)
   tip:AddLine(status)
@@ -519,6 +536,9 @@ local function addCollectionStatusTmogStyle(tip, collected)
   return true
 end
 
+-- ----------------------------
+-- Tooltip decoration pipeline
+-- ----------------------------
 local function decorateTooltip(tip)
   if tip.ichamogDecorated then
     return
@@ -593,25 +613,27 @@ local function hookTooltipHyperlinkUpdates(tip)
   end
 end
 
+-- Methods that populate tooltip item links on different UI sources.
+local TOOLTIP_ITEM_SETTER_METHODS = {
+  "SetHyperlink",
+  "SetBagItem",
+  "SetInventoryItem",
+  "SetLootItem",
+  "SetLootRollItem",
+  "SetMerchantItem",
+  "SetAuctionItem",
+  "SetInboxItem",
+  "SetQuestItem",
+  "SetQuestLogItem",
+  "SetTradeSkillItem",
+  "SetBuybackItem",
+}
+
 local function hookTooltipItemSetters(tip)
   if not tip or tip.ichamogItemSettersHooked then
     return
   end
-  local setters = {
-    "SetHyperlink",
-    "SetBagItem",
-    "SetInventoryItem",
-    "SetLootItem",
-    "SetLootRollItem",
-    "SetMerchantItem",
-    "SetAuctionItem",
-    "SetInboxItem",
-    "SetQuestItem",
-    "SetQuestLogItem",
-    "SetTradeSkillItem",
-    "SetBuybackItem",
-  }
-  for _, method in ipairs(setters) do
+  for _, method in ipairs(TOOLTIP_ITEM_SETTER_METHODS) do
     if type(tip[method]) == "function" then
       hooksecurefunc(tip, method, function(self)
         scheduleDecorateTooltip(self)
@@ -687,6 +709,9 @@ local function hookTooltips()
   end
 end
 
+-- ----------------------------
+-- User commands and events
+-- ----------------------------
 local function printHelp()
   DEFAULT_CHAT_FRAME:AddMessage("|cff00cc00IchaMog|r — loadmogit | resetlooks | wipe | help")
 end
