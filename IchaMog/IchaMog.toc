@@ -1,0 +1,9 @@
+## Interface: 30300
+## Title: IchaMog
+## Notes: Appends after Enchantrix via LibExtraTip:AddCallback(99999). MogIt / server APIs / IchaMog_AppearanceDB.
+## Author: Custom
+## Version: 1.3.22
+## OptionalDeps: MogIt, Enchantrix, Tmog
+## SavedVariables: IchaMogDB
+
+IchaMog.lua
