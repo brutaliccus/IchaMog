@@ -2,7 +2,7 @@
 ## Title: IchaMog
 ## Notes: Appends after Enchantrix via LibExtraTip:AddCallback(99999). MogIt / server APIs / IchaMog_AppearanceDB.
 ## Author: Custom
-## Version: 1.3.22
+## Version: 1.3.29
 ## OptionalDeps: MogIt, Enchantrix, Tmog
 ## SavedVariables: IchaMogDB
 

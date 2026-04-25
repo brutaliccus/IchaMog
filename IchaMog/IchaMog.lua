@@ -19,10 +19,8 @@
   Renamed from HellscreamTransmogTrack: to keep your collection, in WTF copy the table
   HellscreamTransmogTrackDB → IchaMogDB inside SavedVariables.lua for this character.
 
-  With Auctioneer / Enchantrix (LibExtraTip): Collected is appended via LibExtraTip:AddCallback
-  at priority 99999, then LibExtraTip:AddLine with the same embed mode as Enchantrix’s
-  ToolTipEmbedInGameTip (override with IchaMog_LibExtraTipEmbed = true/false if needed).
-  Shopping/compare tooltips use a short defer.
+  With Auctioneer / Enchantrix (LibExtraTip): IchaMog writes directly to tooltip lines
+  for stable sizing across vendor, compare, atlas and hyperlink tooltips.
 
   Tmog-style SetText rebuild stays off by default (breaks LibExtraTip). IchaMog_UseTmogStyleTooltip
   only if you do not use LibExtraTip-style tooltips.
@@ -44,17 +42,6 @@ local everCollectedByItem = {}
 local deferDecorateFrame = CreateFrame("Frame")
 deferDecorateFrame:Hide()
 local pendingDecorateTip
-
---- LibExtraTip: lower priority runs first; we register last so our line appends after Enchantrix.
-local libExtraTipCallbackRegistered = false
-local function hasLibExtraTip()
-  local ls = _G.LibStub
-  if not ls then
-    return false
-  end
-  local le = ls("LibExtraTip-1", true)
-  return le and type(le.AddCallback) == "function"
-end
 
 local function libExtraTipOwnsTooltip(tip)
   local ls = _G.LibStub
@@ -405,18 +392,6 @@ local function frameHasCollectionStatusLine(frame)
   return false
 end
 
-local function getEnchantrixEmbedSetting()
-  local set = _G.Enchantrix and _G.Enchantrix.Settings
-  if not set or type(set.GetSetting) ~= "function" then
-    return nil
-  end
-  local ok, v = pcall(set.GetSetting, "ToolTipEmbedInGameTip")
-  if ok and type(v) == "boolean" then
-    return v
-  end
-  return nil
-end
-
 local function tooltipAlreadyShowsCollectionStatus(tip, le)
   if frameHasCollectionStatusLine(tip) then
     return true
@@ -433,6 +408,10 @@ local function appendCollectionToTooltip(tip, link)
   if not tip or tip.ichamogDecorated then
     return
   end
+  if tip.ichamogLastDecoratedLink and tip.ichamogLastDecoratedLink == link then
+    tip.ichamogDecorated = true
+    return
+  end
   if not link or link == "" then
     return
   end
@@ -445,20 +424,7 @@ local function appendCollectionToTooltip(tip, link)
     return
   end
 
-  local ls = _G.LibStub
-  local le = ls and ls("LibExtraTip-1", true) or nil
-  local leItemTip = le and type(le.AddLine) == "function" and type(le.IsRegistered) == "function" and le:IsRegistered(tip)
-  local leReg = le and type(le.tooltipRegistry) == "table" and le.tooltipRegistry[tip] or nil
-  local extraTipInUse = leReg and leReg.extraTipUsed == true
-  local owner = tip.GetOwner and tip:GetOwner() or nil
-  local ownerName = owner and owner.GetName and owner:GetName() or ""
-  local tipName = tip.GetName and tip:GetName() or ""
-  local atlasContext = (tipName and string.find(tipName, "AtlasLoot", 1, true) ~= nil)
-    or (ownerName and string.find(ownerName, "AtlasLoot", 1, true) ~= nil)
-  local lootContext = (ownerName and (string.find(ownerName, "GroupLoot", 1, true) ~= nil
-    or string.find(ownerName, "Loot", 1, true) ~= nil))
-
-  if tooltipAlreadyShowsCollectionStatus(tip, le) then
+  if tooltipAlreadyShowsCollectionStatus(tip, nil) then
     tip.ichamogDecorated = true
     return
   end
@@ -475,29 +441,9 @@ local function appendCollectionToTooltip(tip, link)
     text, r, g, b = "Not collected", 1.0, 0.4, 0.4
   end
 
-  if leItemTip and extraTipInUse and not atlasContext and not lootContext then
-    local embed
-    if _G.IchaMog_LibExtraTipEmbed == true then
-      embed = true
-    elseif _G.IchaMog_LibExtraTipEmbed == false then
-      embed = false
-    else
-      -- Follow Enchantrix embed setting; fallback to inside-tooltip.
-      embed = getEnchantrixEmbedSetting()
-      if embed == nil then
-        embed = true
-      end
-    end
-    le:AddLine(tip, text, r, g, b, embed)
-    tip:Show()
-    if leReg and leReg.extraTip and leReg.extraTipUsed then
-      leReg.extraTip:Show()
-    end
-  else
-    tip:AddLine(text, r, g, b)
-    tip:Show()
-  end
+  tip:AddLine(text, r, g, b)
   tip.ichamogDecorated = true
+  tip.ichamogLastDecoratedLink = link
 end
 
 local EQUIP_SLOTS = {
@@ -615,45 +561,6 @@ local function decorateTooltip(tip)
   appendCollectionToTooltip(tip, link)
 end
 
-local function libExtraTipOnItem(tooltip, item, quantity, name, link, quality, ilvl, minlvl, itype, isubtype, stack, equiploc, texture)
-  local useLink = link
-  if not useLink or useLink == "" then
-    useLink = item
-  end
-  appendCollectionToTooltip(tooltip, useLink)
-end
-
-local function tryRegisterLibExtraTipCallback()
-  if libExtraTipCallbackRegistered then
-    return
-  end
-  local ls = _G.LibStub
-  if not ls then
-    return
-  end
-  local le = ls("LibExtraTip-1", true)
-  if not le or type(le.AddCallback) ~= "function" then
-    return
-  end
-  le:AddCallback({ type = "item", callback = libExtraTipOnItem }, 99999)
-  libExtraTipCallbackRegistered = true
-end
-
-local function tooltipUsesLibExtraTipChain(tip)
-  if not libExtraTipCallbackRegistered then
-    return false
-  end
-  local ls = _G.LibStub
-  if not ls then
-    return false
-  end
-  local le = ls("LibExtraTip-1", true)
-  if not le or type(le.IsRegistered) ~= "function" then
-    return false
-  end
-  return le:IsRegistered(tip)
-end
-
 local function scheduleDecorateTooltip(tip)
   if not tip then
     return
@@ -668,13 +575,19 @@ local function hookTooltipHyperlinkUpdates(tip)
   end
   if tip.HasScript and tip:HasScript("OnTooltipSetHyperlink") then
     tip:HookScript("OnTooltipSetHyperlink", function(self)
-      scheduleDecorateTooltip(self)
+      decorateTooltip(self)
+      if not self.ichamogDecorated then
+        scheduleDecorateTooltip(self)
+      end
     end)
     return
   end
   if not tip.ichamogSetHyperlinkHooked and type(hooksecurefunc) == "function" then
     hooksecurefunc(tip, "SetHyperlink", function(self)
-      scheduleDecorateTooltip(self)
+      decorateTooltip(self)
+      if not self.ichamogDecorated then
+        scheduleDecorateTooltip(self)
+      end
     end)
     tip.ichamogSetHyperlinkHooked = true
   end
@@ -742,43 +655,34 @@ local function hookTooltips()
   for _, tip in ipairs(tips) do
     if tip and tip.HookScript then
       local isPrimaryTip = (tip == GameTooltip or tip == ItemRefTooltip)
-      local libOwnsPrimary = isPrimaryTip and hasLibExtraTip()
       local tipName = tip.GetName and tip:GetName() or ""
       local isAtlasLike = tipName and string.find(tipName, "AtlasLoot", 1, true) ~= nil
       tip:HookScript("OnTooltipCleared", function(self)
         self.ichamogDecorated = nil
         self.ichamogLockedLink = nil
         self.ichamogLockedValue = nil
+        self.ichamogLastDecoratedLink = nil
         if pendingDecorateTip == self then
           pendingDecorateTip = nil
           deferDecorateFrame:Hide()
         end
       end)
-      if not libOwnsPrimary and not isAtlasLike then
+      if not isAtlasLike then
         hookTooltipItemSetters(tip)
       end
-      --- If LibExtraTip is present, it owns GameTooltip/ItemRefTooltip decoration.
-      --- Keep deferred path only for shopping/compare tooltips.
-      if not isPrimaryTip and not tooltipUsesLibExtraTipChain(tip) then
+      if tip == ShoppingTooltip1 or tip == ShoppingTooltip2 then
         tip:HookScript("OnTooltipSetItem", function(self)
-          scheduleDecorateTooltip(self)
+          decorateTooltip(self)
         end)
-        hookTooltipHyperlinkUpdates(tip)
-        tip:HookScript("OnShow", function(self)
-          scheduleDecorateTooltip(self)
-        end)
-      elseif not hasLibExtraTip() then
+      else
         tip:HookScript("OnTooltipSetItem", function(self)
-          scheduleDecorateTooltip(self)
+          decorateTooltip(self)
+          if not self.ichamogDecorated then
+            scheduleDecorateTooltip(self)
+          end
         end)
-        hookTooltipHyperlinkUpdates(tip)
-        tip:HookScript("OnShow", function(self)
-          scheduleDecorateTooltip(self)
-        end)
-      elseif not libOwnsPrimary then
-        -- LibExtraTip sometimes misses hyperlink-only population paths; fallback safely.
-        hookTooltipHyperlinkUpdates(tip)
       end
+      hookTooltipHyperlinkUpdates(tip)
     end
   end
 end
@@ -823,16 +727,12 @@ f:SetScript("OnEvent", function(_, event, arg1)
     if arg1 == "MogIt" then
       tryAutoEnableMogItData(false)
     end
-    if not libExtraTipCallbackRegistered then
-      tryRegisterLibExtraTipCallback()
-    end
   elseif event == "PLAYER_LOGIN" then
     ensureDB()
     everCollectedByItem = {}
     migrateDB()
     runNativeDisplaySelfTest()
     tryAutoEnableMogItData(false)
-    tryRegisterLibExtraTipCallback()
     if _G.IchaMog_LoadMogItData == true then
       tryLoadMogItDataModules(false)
     end
