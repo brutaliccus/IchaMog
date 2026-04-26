@@ -321,6 +321,14 @@ local function isCollectedByTMOGAppearance(itemId, link)
     return false
   end
 
+  -- Exact item-id match from server cache is authoritative and does not require appearance keys.
+  for _, slot in ipairs(slots) do
+    local bySlot = _G.TMOG_CACHE[slot]
+    if type(bySlot) == "table" and bySlot[itemId] then
+      return true
+    end
+  end
+
   local wanted = {}
   for _, k in ipairs(lookKeysForItem(itemId, link)) do
     wanted[k] = true
@@ -332,9 +340,6 @@ local function isCollectedByTMOGAppearance(itemId, link)
   for _, slot in ipairs(slots) do
     local bySlot = _G.TMOG_CACHE[slot]
     if type(bySlot) == "table" then
-      if bySlot[itemId] then
-        return true
-      end
       for collectedItemId, hasIt in pairs(bySlot) do
         if hasIt and tonumber(collectedItemId) then
           for _, gotKey in ipairs(lookKeysForItem(tonumber(collectedItemId), nil)) do
@@ -476,6 +481,38 @@ local function scanPlayerEquipment()
   end
 end
 
+local function scanPlayerBags()
+  -- WotLK 3.3.5 container API
+  if type(GetContainerNumSlots) ~= "function" or type(GetContainerItemLink) ~= "function" then
+    return
+  end
+  for bag = 0, 4 do
+    local slots = GetContainerNumSlots(bag) or 0
+    for slot = 1, slots do
+      local link = GetContainerItemLink(bag, slot)
+      if link then
+        markCollected(itemIdFromLink(link), link)
+      end
+    end
+  end
+end
+
+local function hydrateFromTMOGCache()
+  if type(_G.TMOG_CACHE) ~= "table" then
+    return
+  end
+  for _, bySlot in pairs(_G.TMOG_CACHE) do
+    if type(bySlot) == "table" then
+      for collectedItemId, hasIt in pairs(bySlot) do
+        local id = tonumber(collectedItemId)
+        if id and hasIt then
+          markCollected(id, nil)
+        end
+      end
+    end
+  end
+end
+
 local scanPending
 local function scheduleScan()
   if scanPending then
@@ -486,7 +523,9 @@ local function scheduleScan()
   q:SetScript("OnUpdate", function(self)
     self:SetScript("OnUpdate", nil)
     scanPending = false
+    hydrateFromTMOGCache()
     scanPlayerEquipment()
+    scanPlayerBags()
   end)
 end
 
@@ -744,6 +783,10 @@ local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("UNIT_INVENTORY_CHANGED")
+f:RegisterEvent("BAG_UPDATE")
+f:RegisterEvent("BAG_UPDATE_DELAYED")
+f:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+f:RegisterEvent("CHAT_MSG_LOOT")
 
 f:SetScript("OnEvent", function(_, event, arg1)
   if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
@@ -762,8 +805,14 @@ f:SetScript("OnEvent", function(_, event, arg1)
       tryLoadMogItDataModules(false)
     end
     hookTooltips()
-    scanPlayerEquipment()
+    scheduleScan()
   elseif event == "UNIT_INVENTORY_CHANGED" and arg1 == "player" then
+    ensureDB()
+    scheduleScan()
+  elseif event == "PLAYER_EQUIPMENT_CHANGED" then
+    ensureDB()
+    scheduleScan()
+  elseif event == "BAG_UPDATE" or event == "BAG_UPDATE_DELAYED" or event == "CHAT_MSG_LOOT" then
     ensureDB()
     scheduleScan()
   end
