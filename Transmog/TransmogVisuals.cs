@@ -41,6 +41,30 @@ namespace Transmog
             return hash;
         }
 
+        // Optional: mods that skip per-frame equipment visual work while nothing changed (for example Valheim Performance
+        // Fixes, RenderTrim.VisUpdate.ForceRefresh) are told that this character's look was re-applied. Looked up once by
+        // name; nothing happens when no such mod is installed.
+        private static System.Reflection.MethodInfo _forceRefresh;
+        private static bool _forceRefreshLooked;
+
+        private static void NotifyVisualChange(VisEquipment vis)
+        {
+            try
+            {
+                if (!_forceRefreshLooked)
+                {
+                    _forceRefreshLooked = true;
+                    var t = AccessTools.TypeByName("RenderTrim.VisUpdate");
+                    _forceRefresh = t == null ? null : AccessTools.Method(t, "ForceRefresh", new[] { typeof(VisEquipment) });
+                }
+                _forceRefresh?.Invoke(null, new object[] { vis });
+            }
+            catch
+            {
+                _forceRefresh = null;
+            }
+        }
+
         /// <summary>Re-applies the five armor visuals of a locally owned player.</summary>
         public static void Refresh(Player player)
         {
@@ -62,6 +86,7 @@ namespace Transmog
                     var sh = TransmogSlots.GetEquipped(player, TransmogSlot.Shoulder);
                     vis.SetShoulderItem(TransmogSlots.Hash(sh), sh != null ? sh.m_variant : 0, sh != null ? sh.m_quality : 0);
                     vis.SetUtilityItem(TransmogSlots.Hash(TransmogSlots.GetEquipped(player, TransmogSlot.Utility)));
+                    NotifyVisualChange(vis);
                 }
                 finally
                 {
