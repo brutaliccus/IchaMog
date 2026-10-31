@@ -23,6 +23,7 @@ namespace Transmog
         internal static ConfigEntry<bool> AllowKnownItems;
         internal static ConfigEntry<bool> AllowAllItems;
         internal static ConfigEntry<bool> AllowHide;
+        internal static ConfigEntry<bool> ShowCapeVariants;
         internal static ConfigEntry<bool> ShowSlotIcons;
         internal static ConfigEntry<IconCorner> IconCornerSetting;
         internal static ConfigEntry<float> IconSize;
@@ -50,6 +51,8 @@ namespace Transmog
                 "Offer every armor item of the slot type, even ones never seen (cheat-ish, off by default).");
             AllowHide = Config.Bind("3 - Picker", "AllowHide", true,
                 "Allow the 'Hide' choice, which renders the slot as empty.");
+            ShowCapeVariants = Config.Bind("3 - Picker", "ShowCapeVariants", false,
+                "Also list the game's re-skinned copies of capes (gold and spectral NPC versions that share the real cape's name and model). Off: each cape is listed once.");
 
             ShowSlotIcons = Config.Bind("4 - Interface", "ShowSlotIcons", true,
                 "Show the small transmog button on equipped armor in the inventory.");
