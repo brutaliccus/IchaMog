@@ -1,0 +1,7 @@
+<Project>
+  <!-- Set these when building. Game/Unity/BepInEx DLLs are NOT included in this repo. -->
+  <PropertyGroup>
+    <ValheimManaged Condition="'$(ValheimManaged)' == ''">$(VALHEIM_MANAGED)</ValheimManaged>
+    <BepInExCore Condition="'$(BepInExCore)' == ''">$(BEPINEX_CORE)</BepInExCore>
+  </PropertyGroup>
+</Project>
