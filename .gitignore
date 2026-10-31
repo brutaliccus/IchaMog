@@ -1,5 +1,21 @@
+# build output
 bin/
 obj/
 out/
+*.dll
+*.pdb
+*.deps.json
+# IDE
 *.user
 .vs/
+.vscode/
+.idea/
+# local research / scratch (never commit decompiled game or mod code)
+research/
+decompiled/
+upy/
+probe*.py
+*.tar
+*.tar.gz
+*.zip
+*.log
