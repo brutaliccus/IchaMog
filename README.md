@@ -33,7 +33,9 @@ GUID: `vpf.Transmog` · Assembly: `VpfTransmog.dll` · License: MIT
 | 3 - Picker | AllowKnownItems | true | offer known (discovered) items, not just inventory |
 | 3 - Picker | AllowAllItems | false | offer every item of the slot type |
 | 3 - Picker | AllowHide | true | allow rendering a slot as empty |
-| 3 - Picker | ShowCapeVariants | false | also list the game's gold/spectral re-skinned cape copies (same name and model as the real cape) |
+| 3 - Picker | ShowGoldenVariants | false | also list the game's golden "Fallen Warrior" (FW_) copies of armor and capes |
+| 3 - Picker | ShowEtherealVariants | false | also list the game's ghostly spirit (SP_) copies of armor and capes |
+| 3 - Picker | ShowOtherVariants | false | also list any other same-name, same-model armor copies |
 | 4 - Interface | ShowSlotIcons | true | the T buttons |
 | 4 - Interface | IconCorner | TopLeft | corner of the cell |
 | 4 - Interface | IconSize | 20 | pixels |

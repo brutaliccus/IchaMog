@@ -342,8 +342,8 @@ namespace Transmog
             void Add(GameObject prefab, ItemDrop.ItemData data, int variant, bool owned)
             {
                 if (prefab == null || data?.m_shared == null || !HasModel(prefab)) return;
-                // Re-skinned NPC copies of a cape (same name, same meshes) unless the player owns one.
-                if (slot == TransmogSlot.Shoulder && !owned && !TransmogPlugin.ShowCapeVariants.Value && CapeVariants.IsVariantCopy(prefab)) return;
+                // Re-skinned NPC copies (same name, same meshes) unless enabled or in the inventory.
+                if (!owned && ItemVariants.IsHidden(prefab)) return;
                 var icons = data.m_shared.m_icons;
                 if (icons == null || icons.Length == 0) return;
                 if (variant < 0 || variant >= icons.Length) variant = 0;
